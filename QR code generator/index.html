@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clean QR Designer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script type="text/javascript" src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #667eea;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            display: flex;
+            flex-wrap: wrap;
+            background: #fff;
+            width: 900px;
+            max-width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        /* LEFT SIDE: Controls */
+        .controls {
+            flex: 1;
+            padding: 40px;
+            min-width: 320px;
+            background: #ffffff;
+        }
+
+        h2 { margin-bottom: 25px; color: #333; font-weight: 600; }
+        
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 14px; color: #555; margin-bottom: 8px; font-weight: 500;}
+        
+        input[type="text"], select, input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            outline: none;
+            transition: 0.3s;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus, select:focus {
+            border-color: var(--primary);
+        }
+        
+        input[type="color"] {
+            width: 100%;
+            height: 45px;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+
+        /* Buttons */
+        .btn-main {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+        .btn-main:hover { background: #5a6fd6; transform: translateY(-2px); }
+
+        /* RIGHT SIDE: Preview */
+        .preview-area {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #f8f9fa;
+            border-left: 1px solid #eee;
+        }
+
+        /* THE CAPTURE AREA - This is what gets downloaded */
+        #capture-node {
+            padding: 25px;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 300px;
+            height: 300px;
+            
+            /* Clean Default Look */
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            border: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="controls">
+            <h2>QR Generator</h2>
+            
+            <div class="form-group">
+                <label>Website URL / Text</label>
+                <input type="text" id="urlInput" placeholder="Enter link here" value="https://google.com">
+            </div>
+
+            <div class="form-group">
+                <label>Upload Logo (Optional)</label>
+                <input type="file" id="logoInput" accept="image/*">
+            </div>
+
+            <div class="row" style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Pattern Style</label>
+                    <select id="patternType">
+                        <option value="square">Square</option>
+                        <option value="dots">Dots</option>
+                        <option value="rounded">Rounded</option>
+                        <option value="extra-rounded">Soft</option>
+                        <option value="classy">Classy</option>
+                        <option value="classy-rounded">Classy Round</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Color</label>
+                    <input type="color" id="colorInput" value="#000000">
+                </div>
+            </div>
+
+            <button class="btn-main" onclick="updateQR()">Update Preview</button>
+        </div>
+
+        <div class="preview-area">
+            <div id="capture-node">
+                <div id="qr-canvas"></div>
+            </div>
+            <br>
+            <button class="btn-main" style="width: 200px; background: #28a745;" onclick="downloadComposition()">Download PNG</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. Initialize Library
+        const qrCode = new QRCodeStyling({
+            width: 250,
+            height: 250,
+            type: "canvas",
+            data: "https://google.com",
+            image: "",
+            dotsOptions: { color: "#000000", type: "square" },
+            backgroundOptions: { color: "#ffffff00" },
+            imageOptions: { crossOrigin: "anonymous", margin: 10 }
+        });
+
+        // 2. Render initial QR
+        qrCode.append(document.getElementById("qr-canvas"));
+
+        // 3. Variables
+        const urlInput = document.getElementById("urlInput");
+        const patternType = document.getElementById("patternType");
+        const colorInput = document.getElementById("colorInput");
+        const logoInput = document.getElementById("logoInput");
+        let currentLogo = "";
+
+        // 4. Logo Logic
+        logoInput.addEventListener("change", function () {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    currentLogo = e.target.result;
+                    updateQR();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                currentLogo = "";
+                updateQR();
+            }
+        });
+
+        // 5. Update Logic
+        function updateQR() {
+            qrCode.update({
+                data: urlInput.value || "https://google.com",
+                dotsOptions: {
+                    color: colorInput.value,
+                    type: patternType.value
+                },
+                image: currentLogo
+            });
+        }
+
+        // 6. Download Logic
+        function downloadComposition() {
+            const node = document.getElementById("capture-node");
+            
+            html2canvas(node, {
+                backgroundColor: null,
+                scale: 2 // High Quality
+            }).then(canvas => {
+                const link = document.createElement("a");
+                link.download = "qr-code.png";
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            });
+        }
+
+        // Live Listeners
+        urlInput.addEventListener('keyup', updateQR);
+        colorInput.addEventListener('input', updateQR);
+        patternType.addEventListener('change', updateQR);
+
+    </script>
+</body>
+</html>
